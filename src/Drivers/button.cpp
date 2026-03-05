@@ -61,9 +61,17 @@ void Button::onDebounce(void *ctx) {
     self->m_pendingClicks = self->m_pendingClicks + 1;
 
     if (self->m_pendingClicks == 1) {
-      // First click — open the double-click window.
-      self->m_windowTimer->start(self->m_windowMs, /*oneShot=*/true, onWindow,
-                                 self);
+      if (self->m_doubleClickCb == nullptr) {
+        // No double-click handler registered — fire single-click immediately,
+        // no need to wait out the double-click window.
+        self->m_pendingClicks = 0;
+        if (self->m_singleClickCb)
+          self->m_singleClickCb(self->m_singleClickCtx);
+      } else {
+        // Double-click handler exists — open the window and wait.
+        self->m_windowTimer->start(self->m_windowMs, /*oneShot=*/true, onWindow,
+                                   self);
+      }
     } else {
       // Second (or more) click inside the window — double-click!
       self->m_windowTimer->stop();
