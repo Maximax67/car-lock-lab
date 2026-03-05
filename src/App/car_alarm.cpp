@@ -26,7 +26,8 @@ void CarAlarm::init(Button *btn1, Button *btn2, Button *btn3,
   m_motion->setOnMotion(cbMotion, this);
   m_motion->setOnMotionEnd(cbMotionEnd, this);
 
-  enterLocked();
+  // Startup: go to Locked silently — no relay pulse or beep on power-on.
+  enterLocked(/*silent=*/true);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,7 +51,9 @@ void CarAlarm::enterUnlocked() {
   m_btn3->setOnDoubleClick(cbBtn3DoubleClick, this);
 }
 
-void CarAlarm::enterLocked() {
+// silent=true  — return to Locked from PreAlarm/FullAlarm: no beep, no relay.
+// silent=false — explicit user lock: beep + relay pulse as normal.
+void CarAlarm::enterLocked(bool silent) {
   m_state = State::Locked;
 
   m_preAlarmTimer->stop();
@@ -58,8 +61,11 @@ void CarAlarm::enterLocked() {
   m_buzzer->stop();
 
   m_led->setColor(true, false, false); // solid red
-  m_buzzer->beep(Config::LOCK_BEEP_MS);
-  m_lockRelay->pulse(Config::LOCK_RELAY_PULSE_MS);
+
+  if (!silent) {
+    m_buzzer->beep(Config::LOCK_BEEP_MS);
+    m_lockRelay->pulse(Config::LOCK_RELAY_PULSE_MS);
+  }
 
   m_motion->enable();
 
@@ -146,7 +152,7 @@ void CarAlarm::cbBtn1Click(void *ctx) {
   auto *self = static_cast<CarAlarm *>(ctx);
   switch (self->m_state) {
   case State::Unlocked:
-    self->enterLocked();
+    self->enterLocked(); // user-initiated: silent=false (default)
     break;
   case State::Locked:
     self->enterUnlocked();
@@ -222,13 +228,13 @@ void CarAlarm::cbPreAlarmExpired(void *ctx) {
   if (self->m_motionActive)
     self->enterFullAlarm();
   else
-    self->enterLocked();
+    self->enterLocked(/*silent=*/true); // no beep/relay — alarm never fired
 }
 
 void CarAlarm::cbAnyBtnAlarmReset(void *ctx) {
   auto *self = static_cast<CarAlarm *>(ctx);
   if (self->m_state == State::FullAlarm)
-    self->enterLocked();
+    self->enterLocked(/*silent=*/true); // dismissing alarm: no re-lock signal
 }
 
 void CarAlarm::cbPreAlarmUpdate(void *ctx) {

@@ -42,7 +42,10 @@ protected:
 
 private:
   void enterUnlocked();
-  void enterLocked();
+  // silent=true suppresses the beep and relay pulse.
+  // Used when returning to Locked from PreAlarm or FullAlarm — those
+  // transitions are not user-initiated lock events.
+  void enterLocked(bool silent = false);
   void enterPreAlarm();
   void enterFullAlarm();
 
