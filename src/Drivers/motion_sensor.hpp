@@ -8,16 +8,22 @@
 // MotionSensor — interrupt-driven wrapper for a PIR or digital motion sensor,
 // with hardware debounce identical in structure to Button.
 //
-// Why debounce?  PIR outputs and manually-driven test signals can produce
-// multiple rapid edges (glitches) at the start of detection.  Without
-// debounce, the first edge enters PreAlarm and a glitch edge immediately
-// escalates to FullAlarm before the LED even starts blinking.
+// Edge-direction detection without reading the pin
+// ─────────────────────────────────────────────────
+// The GPIO is configured as a floating input (PIR drives the line actively).
+// A floating pin with no pull resistor has no defined idle level, so reading
+// IDR after the debounce window is unreliable — the level may have changed or
+// may simply read LOW regardless of the real signal.
 //
-// Debounce logic (mirrors Button):
-//   1. Rising edge fires → EXTI masked, debounce one-shot started.
-//   2. Debounce expires → EXTI re-armed, pin read:
-//        HIGH → genuine motion event → callback fired.
-//        LOW  → glitch / noise        → silently discarded.
+// Instead, edge direction is tracked in software:
+//   m_nextEdgeIsRising starts true (sensor idle = LOW, first event = rising).
+//   After each confirmed event the flag is toggled, so we always know which
+//   edge just fired without touching the pin at all.
+//
+//   rising edge confirmed  → fire m_callback    (motion start)
+//                            m_nextEdgeIsRising = false
+//   falling edge confirmed → fire m_endCallback (motion end)
+//                            m_nextEdgeIsRising = true
 //
 // Wiring assumption: sensor output HIGH = motion active (standard PIR).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,29 +34,38 @@ public:
   // port / pin      : GPIO coordinates of the sensor output.
   // debounceTimer   : SoftwareTimer from TimerManager::allocate().
   // debounceMs      : glitch-rejection window (default: 50 ms).
-  // trigger         : edge to interrupt on (default: Rising = motion start).
+  // trigger         : must be Both to detect motion start and end.
   void init(GPIO_TypeDef *port, uint8_t pin, SoftwareTimer *debounceTimer,
             uint32_t debounceMs = 50,
-            ExtiPin::Trigger trigger = ExtiPin::Trigger::Rising);
+            ExtiPin::Trigger trigger = ExtiPin::Trigger::Both);
 
-  // Register a callback that fires on every confirmed motion edge.
+  // Fires on every confirmed motion-start edge (sensor output goes HIGH).
   void setOnMotion(Callback cb, void *ctx = nullptr);
 
-  // Read current sensor output: true = motion currently active.
+  // Fires on every confirmed motion-end edge (sensor output goes LOW).
+  // Optional: if not set, falling edges are silently ignored.
+  void setOnMotionEnd(Callback cb, void *ctx = nullptr);
+
   bool isActive() const { return m_exti.read(); }
 
-  // Called by CarAlarm to arm / disarm the sensor.
   void enable() { m_exti.enable(); }
   void disable() { m_exti.disable(); }
 
 private:
-  static void onExtiIrq(void *ctx);  // raw edge → start debounce
-  static void onDebounce(void *ctx); // debounce expired → validate + fire
+  static void onExtiIrq(void *ctx); // raw edge → start debounce (no pin read)
+  static void
+  onDebounce(void *ctx); // debounce expired → dispatch by tracked edge
 
   ExtiPin m_exti;
   SoftwareTimer *m_debounceTimer = nullptr;
   uint32_t m_debounceMs = 50;
 
-  Callback m_callback = nullptr;
+  // Tracks which edge is expected next.  Toggled after every confirmed event.
+  // Starts true: sensor idle = LOW, so the first real event is a rising edge.
+  bool m_nextEdgeIsRising = true;
+
+  Callback m_callback = nullptr; // motion-start (rising edge)
   void *m_ctx = nullptr;
+  Callback m_endCallback = nullptr; // motion-end (falling edge)
+  void *m_endCtx = nullptr;
 };

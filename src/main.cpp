@@ -52,9 +52,12 @@ int main() {
   g_btn3.init(GPIOA, 2, tm.allocate(), tm.allocate(),
               Config::BUTTON_DEBOUNCE_MS, Config::BUTTON_DOUBLE_CLICK_MS);
 
-  // Motion sensor — PA7, rising edge = motion detected, 50 ms debounce
+  // Motion sensor — PA7, both edges monitored:
+  //   Rising  = motion detected  → cbMotion
+  //   Falling = motion gone      → cbMotionEnd (arms the PreAlarm escalation
+  //   latch)
   g_motion.init(GPIOA, 7, tm.allocate(), Config::MOTION_DEBOUNCE_MS,
-                ExtiPin::Trigger::Rising);
+                ExtiPin::Trigger::Both);
 
   // Relays — 1 timer each
   g_lockRelay.init(GPIOB, 0, tm.allocate());
