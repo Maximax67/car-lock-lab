@@ -27,39 +27,7 @@ static RgbLed g_led;
 static CarAlarm g_carAlarm;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Minimal system clock setup for STM32F103 @ 72 MHz (HSE 8 MHz, PLL ×9).
-// Replace with your board-specific SystemInit / HAL_Init if you use CubeMX.
-// ─────────────────────────────────────────────────────────────────────────────
-static void systemClockConfig() {
-  // Enable HSE
-  RCC->CR |= RCC_CR_HSEON;
-  while (!(RCC->CR & RCC_CR_HSERDY)) {
-  }
-
-  // Flash latency: 2 wait states for 72 MHz
-  FLASH->ACR = FLASH_ACR_LATENCY_2 | FLASH_ACR_PRFTBE;
-
-  // PLL: HSE source, ×9 → 72 MHz
-  RCC->CFGR = RCC_CFGR_PLLSRC        // PLL source = HSE
-              | RCC_CFGR_PLLMULL9    // ×9
-              | RCC_CFGR_HPRE_DIV1   // AHB  = SYSCLK / 1
-              | RCC_CFGR_PPRE1_DIV2  // APB1 = AHB   / 2  (36 MHz max)
-              | RCC_CFGR_PPRE2_DIV1; // APB2 = AHB   / 1
-
-  RCC->CR |= RCC_CR_PLLON;
-  while (!(RCC->CR & RCC_CR_PLLRDY)) {
-  }
-
-  // Switch SYSCLK to PLL
-  RCC->CFGR |= RCC_CFGR_SW_PLL;
-  while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL) {
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 int main() {
-  systemClockConfig();
-
   // ── Step 1: start 1 ms hardware tick (TIM2, priority 0 = highest) ─────
   auto &tm = TimerManager::instance();
   tm.init(TIM2, Config::TIM_CLK_HZ, /*nvicPriority=*/0);

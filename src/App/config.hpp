@@ -11,12 +11,11 @@
 namespace Config {
 
 // ── Hardware clock ──────────────────────────────────────────────────────────
-// STM32F103 @ 72 MHz PLL.  APB1 prescaler /2 → TIM2-7 input = 72 MHz.
-constexpr uint32_t TIM_CLK_HZ = 72'000'000u;
+constexpr uint32_t TIM_CLK_HZ = 8'000'000u;
 
 // ── Button timing ────────────────────────────────────────────────────────────
 constexpr uint32_t BUTTON_DEBOUNCE_MS = 30;
-constexpr uint32_t BUTTON_DOUBLE_CLICK_MS = 300;
+constexpr uint32_t BUTTON_DOUBLE_CLICK_MS = 1000;
 
 // ── Lock / Unlock
 // ─────────────────────────────────────────────────────────────

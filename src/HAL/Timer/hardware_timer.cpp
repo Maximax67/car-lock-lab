@@ -7,9 +7,6 @@ void HardwareTimer::init(TIM_TypeDef *tim, uint32_t timClkHz,
 
   m_tim->CR1 = 0; // stop and clear control register
 
-  // 1 ms period: timer clock = 10 kHz, ARR = 9
-  //   PSC = timClkHz / 10000 - 1   (e.g. 72 MHz → 7199)
-  //   ARR = 10000 / 1000 - 1 = 9
   m_tim->PSC = static_cast<uint16_t>(timClkHz / 10'000u - 1u);
   m_tim->ARR = 9u;
   m_tim->CNT = 0;
