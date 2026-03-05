@@ -42,7 +42,20 @@ void RgbLed::playFlash(const FlashStep *steps, uint8_t count, bool r, bool g,
   m_timer->start(steps[0].onMs, /*oneShot=*/true, onTimer, this);
 }
 
-// ── Blink ────────────────────────────────────────────────────────────────────
+// ── Blink
+// ─────────────────────────────────────────────────────────────────────
+//
+// Uses a self-rescheduling ONE-SHOT timer instead of a repeating timer.
+//
+// Why: setBlinkPeriod() is called every 100 ms during PreAlarm to smoothly
+// accelerate the blink rate.  With a repeating timer the only way to change
+// the period is to stop + restart, which resets the countdown to zero and
+// means the timer never fires when the update interval (100 ms) is shorter
+// than the blink half-period (up to 500 ms).
+//
+// With a one-shot that reschedules itself in onTimer(), setBlinkPeriod()
+// only needs to store the new value — the next self-scheduled tick picks it
+// up automatically.  The LED therefore always toggles correctly.
 
 void RgbLed::startBlink(uint32_t halfPeriodMs, bool r, bool g, bool b) {
   m_timer->stop();
@@ -53,22 +66,20 @@ void RgbLed::startBlink(uint32_t halfPeriodMs, bool r, bool g, bool b) {
   m_blinkState = true;
   m_mode = Mode::Blink;
   setRaw(r, g, b);
-  m_timer->start(halfPeriodMs, /*oneShot=*/false, onTimer, this);
+  // One-shot: onTimer will reschedule itself after each toggle.
+  m_timer->start(halfPeriodMs, /*oneShot=*/true, onTimer, this);
 }
 
 void RgbLed::setBlinkPeriod(uint32_t halfPeriodMs) {
   if (m_mode != Mode::Blink)
     return;
-  if (m_blinkHalfPeriod == halfPeriodMs)
-    return;
+  // Just store the new period.  The running one-shot will pick it up when
+  // it fires and self-reschedules — no stop/restart needed.
   m_blinkHalfPeriod = halfPeriodMs;
-  // Restart the timer at the new period; the blink phase is preserved
-  // because we haven't touched m_blinkState.
-  m_timer->stop();
-  m_timer->start(halfPeriodMs, /*oneShot=*/false, onTimer, this);
 }
 
-// ── Private helpers ──────────────────────────────────────────────────────────
+// ── Private helpers
+// ───────────────────────────────────────────────────────────
 
 void RgbLed::setRaw(bool r, bool g, bool b) {
   r ? m_r.on() : m_r.off();
@@ -82,12 +93,11 @@ void RgbLed::advanceFlashStep() {
     if (m_flashRepeat) {
       m_flashStep = 0;
     } else {
-      // Pattern finished — go idle (LED already off from the caller).
+      // Pattern finished — go idle.
       m_mode = Mode::Idle;
       setRaw(false, false, false);
 
-      // Fire completion callback *after* state is fully settled so the
-      // callback can safely call setColor(), startBlink(), etc.
+      // Fire completion callback after state is fully settled.
       if (m_flashOnDone)
         m_flashOnDone(m_flashOnDoneCtx);
       return;
@@ -106,12 +116,16 @@ void RgbLed::onTimer(void *ctx) {
 
   switch (self->m_mode) {
   case Mode::Blink:
+    // Toggle the LED.
     self->m_blinkState = !self->m_blinkState;
     if (self->m_blinkState)
       self->setRaw(self->m_blinkR, self->m_blinkG, self->m_blinkB);
     else
       self->setRaw(false, false, false);
-    // Timer is repeating — nothing else to do.
+    // Self-reschedule using the latest half-period (may have been updated by
+    // setBlinkPeriod() since the last tick — that's the whole point).
+    self->m_timer->start(self->m_blinkHalfPeriod, /*oneShot=*/true, onTimer,
+                         self);
     break;
 
   case Mode::Flash:

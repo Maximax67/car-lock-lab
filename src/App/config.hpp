@@ -17,6 +17,12 @@ constexpr uint32_t TIM_CLK_HZ = 8'000'000u;
 constexpr uint32_t BUTTON_DEBOUNCE_MS = 30;
 constexpr uint32_t BUTTON_DOUBLE_CLICK_MS = 1000;
 
+// ── Motion sensor timing ─────────────────────────────────────────────────────
+// Debounce window for the PIR / motion sensor edge.  Long enough to reject
+// glitches and contact bounce on manual test inputs, short enough to not
+// miss a real motion event (PIR outputs are typically stable for 2+ seconds).
+constexpr uint32_t MOTION_DEBOUNCE_MS = 50;
+
 // ── Lock / Unlock
 // ─────────────────────────────────────────────────────────────
 constexpr uint32_t UNLOCK_BEEP_MS = 150;

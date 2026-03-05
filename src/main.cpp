@@ -1,11 +1,11 @@
 #include "App/car_alarm.hpp"
+#include "App/config.hpp"
 #include "Drivers/button.hpp"
 #include "Drivers/buzzer.hpp"
 #include "Drivers/motion_sensor.hpp"
 #include "Drivers/relay.hpp"
 #include "Drivers/rgb_led.hpp"
 #include "HAL/Timer/timer_manager.hpp"
-#include "App/config.hpp"
 #include "stm32f103x6.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,8 +34,15 @@ int main() {
 
   // ── Step 2: init drivers ───────────────────────────────────────────────
   //
-  // TimerManager::allocate() is called here; each call gives back a unique
-  // SoftwareTimer slot from the 20-slot pool.
+  // TimerManager::allocate() gives back a unique SoftwareTimer slot from the
+  // 20-slot pool.  Timer budget:
+  //   Buttons (×3)     : 2 each = 6
+  //   MotionSensor      : 1 (debounce)
+  //   Relays (×2)       : 1 each = 2
+  //   Buzzer            : 1
+  //   RGB LED           : 1
+  //   CarAlarm internal : 2 (pre-alarm countdown + interpolator)
+  //   Total             : 13  (well within MAX_SW_TIMERS = 20)
 
   // Buttons — 2 timers each (debounce + double-click window)
   g_btn1.init(GPIOA, 0, tm.allocate(), tm.allocate(),
@@ -45,8 +52,9 @@ int main() {
   g_btn3.init(GPIOA, 2, tm.allocate(), tm.allocate(),
               Config::BUTTON_DEBOUNCE_MS, Config::BUTTON_DOUBLE_CLICK_MS);
 
-  // Motion sensor — PA7 (Rising edge = motion detected)
-  g_motion.init(GPIOA, 7, ExtiPin::Trigger::Rising);
+  // Motion sensor — PA7, rising edge = motion detected, 50 ms debounce
+  g_motion.init(GPIOA, 7, tm.allocate(), Config::MOTION_DEBOUNCE_MS,
+                ExtiPin::Trigger::Rising);
 
   // Relays — 1 timer each
   g_lockRelay.init(GPIOB, 0, tm.allocate());
