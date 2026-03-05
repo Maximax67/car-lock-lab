@@ -22,9 +22,10 @@
 //              Any button press → back to Locked.
 //
 // Cargo door (double-click button 3) works in Unlocked and Locked states.
+// After the cargo flash sequence the LED is restored to the state colour.
 //
-// Button 2 (PA1) fires onSpecialAction() which is intentionally left as a
-// no-op override point — replace with your custom logic.
+// Button 2 (PA1) triggers a 300 ms blue LED flash, then restores the LED.
+// Override onSpecialAction() in a subclass to replace this behaviour.
 // ─────────────────────────────────────────────────────────────────────────────
 class CarAlarm {
 public:
@@ -32,7 +33,7 @@ public:
 
   // Wire all hardware.  Call once from main() after init'ing TimerManager.
   void init(Button *btn1, // lock / unlock
-            Button *btn2, // special action
+            Button *btn2, // special action (blue flash)
             Button *btn3, // cargo (double-click)
             MotionSensor *motion, Relay *lockRelay, Relay *cargoRelay,
             Buzzer *buzzer, RgbLed *led, TimerManager *tm);
@@ -40,8 +41,8 @@ public:
   State state() const { return m_state; }
 
 protected:
-  // Override point for button 2 (special action).
-  virtual void onSpecialAction() {}
+  // Override point for button 2.  Default implementation: 300 ms blue flash.
+  virtual void onSpecialAction();
 
 private:
   // ── State transitions ─────────────────────────────────────────────────
@@ -49,6 +50,11 @@ private:
   void enterLocked();
   void enterPreAlarm();
   void enterFullAlarm();
+
+  // ── LED helpers ───────────────────────────────────────────────────────
+  // Re-apply the solid colour that matches the current state.
+  // Safe to call from a flash-completion callback.
+  void restoreLed();
 
   // ── Pre-alarm helpers ─────────────────────────────────────────────────
   void updatePreAlarmBlink();
@@ -61,6 +67,7 @@ private:
   static void cbAnyBtnAlarmReset(void *ctx); // buttons reset FullAlarm
   static void cbPreAlarmExpired(void *ctx);
   static void cbPreAlarmUpdate(void *ctx);
+  static void cbRestoreLed(void *ctx); // fires after any one-shot LED flash
 
   // ── Hardware references (not owned) ──────────────────────────────────
   Button *m_btn1 = nullptr;

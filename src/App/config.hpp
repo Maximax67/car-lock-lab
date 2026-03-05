@@ -46,6 +46,7 @@ constexpr uint8_t BEEP_LOCK_COUNT = 1;
 constexpr uint8_t BEEP_CARGO_COUNT = 2;
 constexpr uint8_t BEEP_ALARM_COUNT = 1;
 constexpr uint8_t FLASH_CARGO_COUNT = 3;
+constexpr uint8_t FLASH_BTN2_COUNT = 1; // single 300 ms blue flash
 
 // ── Buzzer patterns (defined in config.cpp)
 // ───────────────────────────────────
@@ -57,5 +58,6 @@ extern const BeepPattern BEEP_ALARM[BEEP_ALARM_COUNT];   // repeating
 // ── LED flash patterns (defined in config.cpp)
 // ────────────────────────────────
 extern const FlashStep FLASH_CARGO[FLASH_CARGO_COUNT]; // 3× 100 ms
+extern const FlashStep FLASH_BTN2[FLASH_BTN2_COUNT];   // 1× 300 ms blue
 
 } // namespace Config

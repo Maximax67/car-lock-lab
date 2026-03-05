@@ -31,8 +31,8 @@ void CarAlarm::init(Button *btn1, Button *btn2, Button *btn3,
   // ── Motion sensor ─────────────────────────────────────────────────────
   m_motion->setOnMotion(cbMotion, this);
 
-  // ── Start in Unlocked state ───────────────────────────────────────────
-  enterUnlocked();
+  // FIX 1: Start in Locked state (alarm armed from power-on).
+  enterLocked();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -130,6 +130,38 @@ void CarAlarm::enterFullAlarm() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// LED restore helper
+// Called as a flash-completion callback so the LED returns to the solid
+// colour that matches the current state after any one-shot flash.
+// Only acts in Unlocked/Locked — blinking states manage their own LED.
+// ─────────────────────────────────────────────────────────────────────────────
+
+void CarAlarm::restoreLed() {
+  switch (m_state) {
+  case State::Unlocked:
+    m_led->setColor(/*r=*/false, /*g=*/true, /*b=*/false);
+    break;
+  case State::Locked:
+    m_led->setColor(/*r=*/true, /*g=*/false, /*b=*/false);
+    break;
+  default:
+    // PreAlarm and FullAlarm drive the LED themselves — do nothing.
+    break;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Button 2 special action — default: 300 ms blue flash then restore LED.
+// Override onSpecialAction() in a subclass to replace this behaviour.
+// ─────────────────────────────────────────────────────────────────────────────
+
+void CarAlarm::onSpecialAction() {
+  m_led->playFlash(Config::FLASH_BTN2, Config::FLASH_BTN2_COUNT,
+                   /*r=*/false, /*g=*/false, /*b=*/true,
+                   /*repeat=*/false, cbRestoreLed, this);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Pre-alarm interpolation (called every 100 ms from m_preAlarmUpdate)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -181,10 +213,11 @@ void CarAlarm::cbBtn3DoubleClick(void *ctx) {
   if (self->m_state != State::Unlocked && self->m_state != State::Locked)
     return;
 
-  // Cargo door: relay pulse + LED flash + buzzer pattern.
+  // Cargo door: relay pulse + LED flash (restores LED when done) + buzzer.
   self->m_cargoRelay->pulse(Config::CARGO_RELAY_PULSE_MS);
   self->m_led->playFlash(Config::FLASH_CARGO, Config::FLASH_CARGO_COUNT,
-                         /*r=*/true, /*g=*/false, /*b=*/false);
+                         /*r=*/true, /*g=*/false, /*b=*/true,
+                         /*repeat=*/false, cbRestoreLed, self);
   self->m_buzzer->playPattern(Config::BEEP_CARGO, Config::BEEP_CARGO_COUNT);
 }
 
@@ -224,4 +257,8 @@ void CarAlarm::cbPreAlarmExpired(void *ctx) {
 
 void CarAlarm::cbPreAlarmUpdate(void *ctx) {
   static_cast<CarAlarm *>(ctx)->updatePreAlarmBlink();
+}
+
+void CarAlarm::cbRestoreLed(void *ctx) {
+  static_cast<CarAlarm *>(ctx)->restoreLed();
 }

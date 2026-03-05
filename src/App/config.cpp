@@ -26,4 +26,9 @@ const FlashStep FLASH_CARGO[FLASH_CARGO_COUNT] = {
     {100, 0}, // last flash — no trailing off needed
 };
 
+// Button 2 LED: single 300 ms blue flash.
+const FlashStep FLASH_BTN2[FLASH_BTN2_COUNT] = {
+    {300, 0},
+};
+
 } // namespace Config

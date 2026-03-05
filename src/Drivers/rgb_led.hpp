@@ -1,7 +1,7 @@
 #pragma once
 
-#include "HAL/gpio.hpp"
 #include "HAL/Timer/software_timer.hpp"
+#include "HAL/gpio.hpp"
 #include <cstdint>
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21,11 +21,14 @@ struct FlashStep {
 // Modes (mutually exclusive):
 //   Solid   — constant colour, no timer activity.
 //   Flash   — plays a FlashStep array once (or repeating), then stops.
+//             onDone callback fires after the last step when repeat=false.
 //   Blink   — toggles between colour and off at a configurable half-period.
 //             setBlinkPeriod() updates the speed without restarting from zero.
 // ─────────────────────────────────────────────────────────────────────────────
 class RgbLed {
 public:
+  using Callback = void (*)(void *ctx);
+
   // rPort/rPin, gPort/gPin, bPort/bPin : one GPIO per channel.
   // timer : a SoftwareTimer allocated from TimerManager::allocate().
   void init(GPIO_TypeDef *rPort, uint8_t rPin, GPIO_TypeDef *gPort,
@@ -41,8 +44,11 @@ public:
 
   // ── Flash pattern ─────────────────────────────────────────────────────
   // Play an array of FlashStep with the given colour, optionally repeating.
+  // onDone / onDoneCtx : optional callback fired when a non-repeating flash
+  //                      finishes (not called for repeat=true patterns).
   void playFlash(const FlashStep *steps, uint8_t count, bool r, bool g, bool b,
-                 bool repeat = false);
+                 bool repeat = false, Callback onDone = nullptr,
+                 void *onDoneCtx = nullptr);
 
   // ── Blink ─────────────────────────────────────────────────────────────
   // Start blinking the given colour at halfPeriodMs on / halfPeriodMs off.
@@ -72,6 +78,8 @@ private:
   bool m_flashRepeat = false;
   bool m_flashInOn = false;
   bool m_flashR = false, m_flashG = false, m_flashB = false;
+  Callback m_flashOnDone = nullptr;
+  void *m_flashOnDoneCtx = nullptr;
 
   // Blink state
   uint32_t m_blinkHalfPeriod = 0;

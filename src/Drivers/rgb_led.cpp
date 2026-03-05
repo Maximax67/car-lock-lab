@@ -24,7 +24,7 @@ void RgbLed::off() { setColor(false, false, false); }
 // ─────────────────────────────────────────────────────────────
 
 void RgbLed::playFlash(const FlashStep *steps, uint8_t count, bool r, bool g,
-                       bool b, bool repeat) {
+                       bool b, bool repeat, Callback onDone, void *onDoneCtx) {
   m_timer->stop();
   m_flashSteps = steps;
   m_flashCount = count;
@@ -33,6 +33,8 @@ void RgbLed::playFlash(const FlashStep *steps, uint8_t count, bool r, bool g,
   m_flashR = r;
   m_flashG = g;
   m_flashB = b;
+  m_flashOnDone = onDone;
+  m_flashOnDoneCtx = onDoneCtx;
   m_mode = Mode::Flash;
   m_flashInOn = true;
 
@@ -80,8 +82,14 @@ void RgbLed::advanceFlashStep() {
     if (m_flashRepeat) {
       m_flashStep = 0;
     } else {
+      // Pattern finished — go idle (LED already off from the caller).
       m_mode = Mode::Idle;
       setRaw(false, false, false);
+
+      // Fire completion callback *after* state is fully settled so the
+      // callback can safely call setColor(), startBlink(), etc.
+      if (m_flashOnDone)
+        m_flashOnDone(m_flashOnDoneCtx);
       return;
     }
   }
