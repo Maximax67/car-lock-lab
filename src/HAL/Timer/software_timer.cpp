@@ -2,10 +2,9 @@
 #include "stm32f103x6.h"
 
 void SoftwareTimer::start(uint32_t intervalMs, bool oneShot, Callback cb,
-                          void *ctx) {
-  // Guard: TIM2 IRQ (priority 0) can preempt EXTI (priority 1).
-  // If an EXTI callback calls start() while TIM2 fires mid-write,
-  // the tick would see a half-written timer state. Disable IRQs briefly.
+                          void *ctx) noexcept {
+  // TIM2 (priority 0) can preempt an EXTI callback (priority 1) mid-write.
+  // Disabling IRQs briefly makes the write atomic from TIM2's perspective.
   __disable_irq();
   m_interval = intervalMs;
   m_elapsed = 0;
@@ -16,31 +15,35 @@ void SoftwareTimer::start(uint32_t intervalMs, bool oneShot, Callback cb,
   __enable_irq();
 }
 
-void SoftwareTimer::stop() {
+void SoftwareTimer::stop() noexcept {
   __disable_irq();
   m_running = false;
   m_elapsed = 0;
   __enable_irq();
 }
 
-void SoftwareTimer::restart() {
+void SoftwareTimer::restart() noexcept {
   __disable_irq();
   m_elapsed = 0;
   m_running = true;
   __enable_irq();
 }
 
-void SoftwareTimer::_tick() {
-  // Called from TIM2 ISR — keep this fast, no blocking
+// ── Called only from TimerManager — advances by exactly 1 ms ────────────────
+
+void SoftwareTimer::tick() noexcept {
   if (!m_running)
     return;
 
-  ++m_elapsed;
+  auto elapsed = m_elapsed + 1;
+  m_elapsed = elapsed;
 
-  if (m_elapsed < m_interval)
+  if (elapsed < m_interval) {
     return;
+  }
 
-  // Interval reached — fire callback
+  // Interval reached — commit the state change before firing the callback so
+  // that the callback is free to call start() / stop() without racing.
   if (m_oneShot) {
     m_running = false;
     m_elapsed = 0;
@@ -48,9 +51,6 @@ void SoftwareTimer::_tick() {
     m_elapsed = 0; // auto-reload for repeating mode
   }
 
-  // Callback may call start() / stop() on this or other timers — that's fine
-  // because we've already committed our state change above.
-  if (m_cb) {
+  if (m_cb)
     m_cb(m_ctx);
-  }
 }

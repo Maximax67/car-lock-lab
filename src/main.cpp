@@ -8,12 +8,6 @@
 #include "HAL/Timer/timer_manager.hpp"
 #include "stm32f103x6.h"
 
-// ─────────────────────────────────────────────────────────────────────────────
-// All top-level objects live in BSS (zero-initialised at startup).
-// No heap is used anywhere in this project.
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ── Drivers ──────────────────────────────────────────────────────────────────
 static Button g_btn1;
 static Button g_btn2;
 static Button g_btn3;
@@ -22,29 +16,14 @@ static Relay g_lockRelay;
 static Relay g_cargoRelay;
 static Buzzer g_buzzer;
 static RgbLed g_led;
-
-// ── Application ──────────────────────────────────────────────────────────────
 static CarAlarm g_carAlarm;
 
-// ─────────────────────────────────────────────────────────────────────────────
 int main() {
-  // ── Step 1: start 1 ms hardware tick (TIM2, priority 0 = highest) ─────
+  // TIM2, priority 0 (highest) so it can preempt EXTI (priority 1) and
+  // advance software timers atomically.
   auto &tm = TimerManager::instance();
-  tm.init(TIM2, Config::TIM_CLK_HZ, /*nvicPriority=*/0);
+  tm.init(TIM2, Config::TIM_CLK_HZ, 0);
 
-  // ── Step 2: init drivers ───────────────────────────────────────────────
-  //
-  // TimerManager::allocate() gives back a unique SoftwareTimer slot from the
-  // 20-slot pool.  Timer budget:
-  //   Buttons (×3)     : 2 each = 6
-  //   MotionSensor      : 1 (debounce)
-  //   Relays (×2)       : 1 each = 2
-  //   Buzzer            : 1
-  //   RGB LED           : 1
-  //   CarAlarm internal : 2 (pre-alarm countdown + interpolator)
-  //   Total             : 13  (well within MAX_SW_TIMERS = 20)
-
-  // Buttons — 2 timers each (debounce + double-click window)
   g_btn1.init(GPIOA, 0, tm.allocate(), tm.allocate(),
               Config::BUTTON_DEBOUNCE_MS, Config::BUTTON_DOUBLE_CLICK_MS);
   g_btn2.init(GPIOA, 1, tm.allocate(), tm.allocate(),
@@ -52,32 +31,23 @@ int main() {
   g_btn3.init(GPIOA, 2, tm.allocate(), tm.allocate(),
               Config::BUTTON_DEBOUNCE_MS, Config::BUTTON_DOUBLE_CLICK_MS);
 
-  // Motion sensor — PA7, both edges monitored:
-  //   Rising  = motion detected  → cbMotion
-  //   Falling = motion gone      → cbMotionEnd (arms the PreAlarm escalation
-  //   latch)
   g_motion.init(GPIOA, 7, tm.allocate(), Config::MOTION_DEBOUNCE_MS,
                 ExtiPin::Trigger::Both);
 
-  // Relays — 1 timer each
   g_lockRelay.init(GPIOB, 0, tm.allocate());
   g_cargoRelay.init(GPIOB, 1, tm.allocate());
 
-  // Buzzer — 1 timer
   g_buzzer.init(GPIOB, 4, tm.allocate());
 
-  // RGB LED — R=PB5, G=PB6, B=PB7 — 1 shared timer
   g_led.init(GPIOB, 5, // R
              GPIOB, 6, // G
              GPIOB, 7, // B
              tm.allocate());
 
-  // ── Step 3: wire everything into the application state machine ─────────
   g_carAlarm.init(&g_btn1, &g_btn2, &g_btn3, &g_motion, &g_lockRelay,
                   &g_cargoRelay, &g_buzzer, &g_led, &tm);
 
-  // ── Step 4: idle loop — all work is done in interrupt context ──────────
   while (true) {
-    __WFI(); // sleep until next interrupt (saves power)
+    __WFI();
   }
 }

@@ -3,11 +3,12 @@
 #include "HAL/Timer/software_timer.hpp"
 #include "HAL/gpio.hpp"
 #include <cstdint>
+#include <span>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FlashStep — one element of an LED flash sequence.
-//   onMs  : LED on duration   (0 = skip)
-//   offMs : LED off duration  (0 = no gap)
+//   onMs  : LED on duration  (must be > 0)
+//   offMs : LED off duration (0 = no gap between steps)
 // ─────────────────────────────────────────────────────────────────────────────
 struct FlashStep {
   uint32_t onMs;
@@ -15,65 +16,64 @@ struct FlashStep {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RgbLed — drives a common-cathode RGB LED (3 separate GPIO pins, one per
-// channel).  All three channels share a single SoftwareTimer.
+// RgbLed — drives a common-cathode RGB LED via three independent GPIO pins,
+// with one shared SoftwareTimer.
 //
-// Modes (mutually exclusive):
-//   Solid   — constant colour, no timer activity.
-//   Flash   — plays a FlashStep array once (or repeating), then stops.
-//             onDone callback fires after the last step when repeat=false.
-//   Blink   — toggles between colour and off at a configurable half-period.
-//             setBlinkPeriod() updates the speed without restarting from zero.
+// Modes (mutually exclusive, last call wins):
+//   Solid — constant colour, no timer activity.
+//   Flash — plays a FlashStep array once (or looping); optional onDone
+//           callback fires after the last step when repeat=false.
+//   Blink — toggles at a configurable half-period.
+//           setBlinkPeriod() updates speed without resetting phase:
+//           stores the new value and the next self-scheduled tick picks it
+//           up automatically — no stop/restart needed.
+//
+// Pattern lifetime: spans passed to playFlash() are stored by reference.
+// The underlying arrays must outlive active playback.
 // ─────────────────────────────────────────────────────────────────────────────
 class RgbLed {
 public:
-  using Callback = void (*)(void *ctx);
+  using Callback = void (*)(void *ctx) noexcept;
 
-  // rPort/rPin, gPort/gPin, bPort/bPin : one GPIO per channel.
-  // timer : a SoftwareTimer allocated from TimerManager::allocate().
   void init(GPIO_TypeDef *rPort, uint8_t rPin, GPIO_TypeDef *gPort,
             uint8_t gPin, GPIO_TypeDef *bPort, uint8_t bPin,
-            SoftwareTimer *timer);
+            SoftwareTimer *timer) noexcept;
 
-  // ── Solid colour ─────────────────────────────────────────────────────
-  // Stops any running pattern and sets the LED to a fixed colour.
-  void setColor(bool r, bool g, bool b);
-
-  // Turn off all channels and stop any pattern.
-  void off();
+  // ── Solid colour ──────────────────────────────────────────────────────
+  void setColor(bool r, bool g, bool b) noexcept;
+  void off() noexcept;
 
   // ── Flash pattern ─────────────────────────────────────────────────────
-  // Play an array of FlashStep with the given colour, optionally repeating.
-  // onDone / onDoneCtx : optional callback fired when a non-repeating flash
-  //                      finishes (not called for repeat=true patterns).
-  void playFlash(const FlashStep *steps, uint8_t count, bool r, bool g, bool b,
+  // Play steps with the given colour.  onDone fires when a non-repeating
+  // pattern finishes.
+  void playFlash(std::span<const FlashStep> steps, bool r, bool g, bool b,
                  bool repeat = false, Callback onDone = nullptr,
-                 void *onDoneCtx = nullptr);
+                 void *onDoneCtx = nullptr) noexcept;
 
   // ── Blink ─────────────────────────────────────────────────────────────
-  // Start blinking the given colour at halfPeriodMs on / halfPeriodMs off.
-  void startBlink(uint32_t halfPeriodMs, bool r, bool g, bool b);
+  // Start blinking at halfPeriodMs on / halfPeriodMs off.
+  void startBlink(uint32_t halfPeriodMs, bool r, bool g, bool b) noexcept;
 
-  // Change blink speed without resetting the on/off phase.
-  // If the LED is not currently blinking, this call is a no-op.
-  void setBlinkPeriod(uint32_t halfPeriodMs);
+  // Change blink speed without resetting the phase.  No-op if not blinking.
+  void setBlinkPeriod(uint32_t halfPeriodMs) noexcept;
 
-  bool isBlinking() const { return m_mode == Mode::Blink; }
+  [[nodiscard]] bool isBlinking() const noexcept {
+    return m_mode == Mode::Blink;
+  }
 
 private:
   enum class Mode { Idle, Flash, Blink };
 
-  static void onTimer(void *ctx);
-  void setRaw(bool r, bool g, bool b);
-  void advanceFlashStep();
+  static void onTimer(void *ctx) noexcept;
+  void setRaw(bool r, bool g, bool b) noexcept;
+  void advanceFlashStep() noexcept;
 
   GpioPin m_r, m_g, m_b;
   SoftwareTimer *m_timer = nullptr;
   Mode m_mode = Mode::Idle;
 
   // Flash state
-  const FlashStep *m_flashSteps = nullptr;
-  uint8_t m_flashCount = 0;
+  std::span<const FlashStep> m_flashSteps{};
   uint8_t m_flashStep = 0;
   bool m_flashRepeat = false;
   bool m_flashInOn = false;

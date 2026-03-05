@@ -7,9 +7,11 @@
 // GpioPin — thin wrapper around a single STM32F1 GPIO pin.
 //
 // Two construction styles are supported:
-//   1. One-shot (constructor does full init) — for standalone objects.
-//   2. Two-phase (default ctor + initAsInput/initAsOutput) — for class members
-//      that must be default-constructed before their port/pin are known.
+//   1. Two-phase (default ctor + initAsInput / initAsOutput) — for class
+//      members that must be default-constructed before port/pin are known.
+//   2. One-shot (constructor does full init) — for standalone objects.
+//
+// All methods are noexcept: the class never allocates or throws.
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum class GpioMode : uint8_t {
@@ -40,35 +42,34 @@ enum class GpioOutputMode : uint8_t {
 
 class GpioPin {
 public:
-  // ── Two-phase construction (default + explicit init) ─────────────────
+  // ── Two-phase construction ────────────────────────────────────────────
   GpioPin() = default;
 
   void initAsInput(GPIO_TypeDef *port, uint8_t pin, GpioInputMode mode,
-                   GpioPull pull = GpioPull::No);
+                   GpioPull pull = GpioPull::No) noexcept;
   void initAsOutput(GPIO_TypeDef *port, uint8_t pin, GpioMode speed,
-                    GpioOutputMode outMode);
+                    GpioOutputMode outMode) noexcept;
 
-  // ── One-shot construction (legacy / convenience) ──────────────────────
+  // ── One-shot construction ─────────────────────────────────────────────
   GpioPin(GPIO_TypeDef *port, uint8_t pin, GpioInputMode inputMode,
-          GpioPull pull = GpioPull::No);
+          GpioPull pull = GpioPull::No) noexcept;
   GpioPin(GPIO_TypeDef *port, uint8_t pin, GpioMode outputSpeed,
-          GpioOutputMode outputMode);
+          GpioOutputMode outputMode) noexcept;
 
   // ── Operations ────────────────────────────────────────────────────────
-  void on();
-  void off();
-  void toggle();
-  [[nodiscard]] bool read() const;
+  void on() noexcept;
+  void off() noexcept;
+  void toggle() noexcept;
 
-  GPIO_TypeDef *port() const { return m_port; }
-  uint8_t pin() const { return m_pin; }
+  [[nodiscard]] bool read() const noexcept;
+  [[nodiscard]] GPIO_TypeDef *port() const noexcept { return m_port; }
+  [[nodiscard]] uint8_t pin() const noexcept { return m_pin; }
 
 private:
   static void setValue(__IO uint32_t *reg, uint32_t bitsPerValue,
-                       uint32_t value, uint8_t bitPosition);
-
-  void enableClock();
-  void configure(uint32_t mode, uint32_t cnf);
+                       uint32_t value, uint8_t bitPosition) noexcept;
+  void enableClock() noexcept;
+  void configure(uint32_t mode, uint32_t cnf) noexcept;
 
   GPIO_TypeDef *m_port = nullptr;
   uint8_t m_pin = 0;

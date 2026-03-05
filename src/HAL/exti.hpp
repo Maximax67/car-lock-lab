@@ -7,52 +7,52 @@
 // ExtiPin — attaches an EXTI interrupt to any GPIO pin.
 //
 // Two construction styles:
-//   One-shot:   ExtiPin btn(GPIOA, 0, GpioInputMode::PullUpDown, GpioPull::Up,
-//                           ExtiPin::Trigger::Falling);
-//   Two-phase:  ExtiPin btn;        // default ctor, no hardware touch
+//   Two-phase:  ExtiPin btn;
 //               btn.init(GPIOA, 0, GpioInputMode::PullUpDown,
 //                        GpioPull::Up, ExtiPin::Trigger::Falling);
+//   One-shot:   ExtiPin btn(GPIOA, 0, GpioInputMode::PullUpDown,
+//                           GpioPull::Up, ExtiPin::Trigger::Falling);
 //
-// The static s_registry[16] maps EXTI line → ExtiPin* so ISR handlers can
-// dispatch correctly.  ISR handlers must call dispatch() / dispatchRange().
+// The static s_registry[16] maps EXTI line → ExtiPin* so ISR dispatch works
+// without any runtime search.  ISR handlers must call dispatch() or
+// dispatchRange().
 // ─────────────────────────────────────────────────────────────────────────────
 class ExtiPin {
 public:
   enum class Trigger { Rising, Falling, Both };
-  using Callback = void (*)(void *ctx);
+  using Callback = void (*)(void *ctx) noexcept;
 
-  // Default ctor — no hardware initialisation, no registry entry.
   ExtiPin() = default;
 
-  // Two-phase init (usable when ExtiPin is a class member).
   void init(GPIO_TypeDef *port, uint8_t pin, GpioInputMode inputMode,
-            GpioPull pull, Trigger trigger);
+            GpioPull pull, Trigger trigger) noexcept;
 
-  // One-shot construction (convenience — calls init() internally).
   ExtiPin(GPIO_TypeDef *port, uint8_t pin, GpioInputMode inputMode,
-          GpioPull pull, Trigger trigger);
+          GpioPull pull, Trigger trigger) noexcept;
 
-  void setCallback(Callback cb, void *ctx = nullptr);
+  void setCallback(Callback cb, void *ctx = nullptr) noexcept;
 
-  void enable();
-  void disable();
+  void enable() noexcept;
+  void disable() noexcept;
 
-  bool read() const { return m_gpio.read(); }
+  [[nodiscard]] bool read() const noexcept { return m_gpio.read(); }
 
-  // Called from ISR dispatcher — clears pending bit, fires callback.
-  void handleIrq();
+  // Called from the ISR dispatcher — clears the pending bit and fires the
+  // registered callback.
+  void handleIrq() noexcept;
 
-  static void dispatch(uint8_t pin);
-  static void dispatchRange(uint8_t first, uint8_t last);
+  static void dispatch(uint8_t pin) noexcept;
+  static void dispatchRange(uint8_t first, uint8_t last) noexcept;
 
   static ExtiPin *s_registry[16];
 
 private:
-  void configureAfio();
-  void configureLine();
-  void configureNvic();
-  IRQn_Type irqn() const;
-  uint8_t portSource() const;
+  void configureAfio() noexcept;
+  void configureLine() noexcept;
+  void configureNvic() noexcept;
+
+  [[nodiscard]] IRQn_Type irqn() const noexcept;
+  [[nodiscard]] uint8_t portSource() const noexcept;
 
   GpioPin m_gpio;
   uint8_t m_pin = 0xFF; // 0xFF = uninitialised sentinel

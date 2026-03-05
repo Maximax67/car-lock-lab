@@ -1,13 +1,14 @@
 #pragma once
 
-#include "HAL/gpio.hpp"
 #include "HAL/Timer/software_timer.hpp"
+#include "HAL/gpio.hpp"
 #include <cstdint>
+#include <span>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BeepPattern — one element of a buzzer sequence.
-//   onMs  : how long the buzzer is ON for this step  (0 = skip step)
-//   offMs : silent gap after this step               (0 = no gap)
+//   onMs  : how long the buzzer is ON  (must be > 0)
+//   offMs : silent gap after this step (0 = no gap, advance immediately)
 // ─────────────────────────────────────────────────────────────────────────────
 struct BeepPattern {
   uint32_t onMs;
@@ -15,48 +16,46 @@ struct BeepPattern {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Buzzer — drives an active buzzer (DC, on/off) connected to one GPIO pin.
+// Buzzer — drives an active (DC, on/off) buzzer connected to one GPIO pin.
 //
-// Call init() once with the GPIO coordinates and a pre-allocated SoftwareTimer.
-// Then call playPattern() or playAlarm() / stop() as needed.
+// Call init() once with GPIO coordinates and a pre-allocated SoftwareTimer.
+// Then use playPattern() for multi-step sequences or beep() for a simple
+// single-duration tone.  All timing runs from the TIM2 ISR — no blocking.
 //
-// Internals: the timer fires after each phase (on or off), advances through
-// the pattern array, and optionally loops.  Everything runs from the TIM2 ISR
-// context — no blocking anywhere.
+// Pattern lifetime: the span passed to playPattern() is stored by reference.
+// The underlying array must outlive the active playback (pass a constexpr /
+// static array, not a local).
 // ─────────────────────────────────────────────────────────────────────────────
 class Buzzer {
 public:
-  // port / pin   : GPIO coordinates of the buzzer signal
-  // timer        : a SoftwareTimer allocated from TimerManager::allocate()
-  void init(GPIO_TypeDef *port, uint8_t pin, SoftwareTimer *timer);
+  void init(GPIO_TypeDef *port, uint8_t pin, SoftwareTimer *timer) noexcept;
 
-  // Play a fixed pattern once (or repeated if repeat=true).
-  // pattern / count : pointer + length of a BeepPattern array.
-  void playPattern(const BeepPattern *pattern, uint8_t count,
-                   bool repeat = false);
+  // Play a sequence of BeepPattern steps, optionally looping.
+  void playPattern(std::span<const BeepPattern> pattern,
+                   bool repeat = false) noexcept;
 
-  // Convenience: play a single beep of given duration.
-  void beep(uint32_t durationMs);
+  // Convenience: single beep of the given duration.
+  void beep(uint32_t durationMs) noexcept;
 
-  // Stop any ongoing pattern and silence the buzzer.
-  void stop();
+  // Stop any ongoing pattern and silence the buzzer immediately.
+  void stop() noexcept;
 
-  bool isPlaying() const { return m_running; }
+  [[nodiscard]] bool isPlaying() const noexcept { return m_running; }
 
 private:
-  static void onTimer(void *ctx);
-  void advanceStep();
+  static void onTimer(void *ctx) noexcept;
+  void advanceStep() noexcept;
 
   GpioPin m_pin;
   SoftwareTimer *m_timer = nullptr;
 
-  const BeepPattern *m_pattern = nullptr;
-  uint8_t m_count = 0;
+  std::span<const BeepPattern> m_pattern{};
   uint8_t m_step = 0;
   bool m_inOn = false;
   bool m_repeat = false;
   bool m_running = false;
 
-  // Scratch storage for the single-beep convenience helper.
+  // Scratch storage for the single-beep helper.
+  // Kept as a member so its lifetime covers the async timer callback.
   BeepPattern m_singleBeep{};
 };

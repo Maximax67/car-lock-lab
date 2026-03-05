@@ -17,50 +17,51 @@
 //  Locked    : Red LED solid.    Unlock button unlocks; motion → PreAlarm.
 //  PreAlarm  : Red LED blinking (1 s → 200 ms period over 5 s).
 //              The 5 s countdown always runs to completion.
-//              • Motion gone, 5 s expires          → back to Locked (no alarm).
-//              • Motion present when 5 s expires   → FullAlarm.
-//              • Motion stops then restarts < 5 s  → FullAlarm immediately.
-//  FullAlarm : Red LED 125 ms blink.  Buzzer 300 ms period.
+//              • Motion gone, 5 s expires           → back to Locked (quiet).
+//              • Motion still present when 5 s expires → FullAlarm.
+//              • Motion stops then restarts < 5 s   → FullAlarm immediately.
+//  FullAlarm : Red LED 125 ms blink.  Buzzer 300 ms period (repeating).
 //              Any button press → back to Locked.
 //
-// Cargo door (double-click button 3) works in Unlocked and Locked states.
-// Button 2 triggers a 300 ms blue LED flash.
+// Cargo door (double-click button 3) is available in Unlocked and Locked.
+// Button 2 triggers a special action (default: 300 ms blue LED flash).
 // Override onSpecialAction() in a subclass to replace this behaviour.
 // ─────────────────────────────────────────────────────────────────────────────
 class CarAlarm {
 public:
   enum class State { Unlocked, Locked, PreAlarm, FullAlarm };
 
+  virtual ~CarAlarm() = default;
+
   void init(Button *btn1, Button *btn2, Button *btn3, MotionSensor *motion,
             Relay *lockRelay, Relay *cargoRelay, Buzzer *buzzer, RgbLed *led,
-            TimerManager *tm);
+            TimerManager *tm) noexcept;
 
-  State state() const { return m_state; }
+  [[nodiscard]] State state() const noexcept { return m_state; }
 
 protected:
-  virtual void onSpecialAction();
+  virtual void onSpecialAction() noexcept;
 
 private:
-  void enterUnlocked();
-  // silent=true suppresses the beep and relay pulse.
-  // Used when returning to Locked from PreAlarm or FullAlarm — those
-  // transitions are not user-initiated lock events.
-  void enterLocked(bool silent = false);
-  void enterPreAlarm();
-  void enterFullAlarm();
+  void enterUnlocked() noexcept;
+  // silent=true  — returning from PreAlarm / FullAlarm: no beep, no relay.
+  // silent=false — user-initiated lock: beep + relay pulse as normal.
+  void enterLocked(bool silent = false) noexcept;
+  void enterPreAlarm() noexcept;
+  void enterFullAlarm() noexcept;
 
-  void restoreLed();
-  void updatePreAlarmBlink();
+  void restoreLed() noexcept;
+  void updatePreAlarmBlink() noexcept;
 
-  static void cbBtn1Click(void *ctx);
-  static void cbBtn2Click(void *ctx);
-  static void cbBtn3DoubleClick(void *ctx);
-  static void cbMotion(void *ctx);    // sensor HIGH — motion started
-  static void cbMotionEnd(void *ctx); // sensor LOW  — motion stopped
-  static void cbAnyBtnAlarmReset(void *ctx);
-  static void cbPreAlarmExpired(void *ctx);
-  static void cbPreAlarmUpdate(void *ctx);
-  static void cbRestoreLed(void *ctx);
+  static void cbBtn1Click(void *ctx) noexcept;
+  static void cbBtn2Click(void *ctx) noexcept;
+  static void cbBtn3DoubleClick(void *ctx) noexcept;
+  static void cbMotion(void *ctx) noexcept;    // sensor HIGH — motion started
+  static void cbMotionEnd(void *ctx) noexcept; // sensor LOW  — motion stopped
+  static void cbAnyBtnAlarmReset(void *ctx) noexcept;
+  static void cbPreAlarmExpired(void *ctx) noexcept;
+  static void cbPreAlarmUpdate(void *ctx) noexcept;
+  static void cbRestoreLed(void *ctx) noexcept;
 
   Button *m_btn1 = nullptr;
   Button *m_btn2 = nullptr;
@@ -71,19 +72,20 @@ private:
   Buzzer *m_buzzer = nullptr;
   RgbLed *m_led = nullptr;
 
-  SoftwareTimer *m_preAlarmTimer = nullptr;  // 5 s one-shot
-  SoftwareTimer *m_preAlarmUpdate = nullptr; // 100 ms repeating interpolator
+  SoftwareTimer *m_preAlarmTimer = nullptr; // 5 s one-shot countdown
+  SoftwareTimer *m_preAlarmUpdate =
+      nullptr; // 100 ms repeating blink interpolator
 
   State m_state = State::Unlocked;
   uint32_t m_preAlarmElapsedMs = 0;
 
   // True while the motion sensor is actively reporting motion.
-  // Set on entering PreAlarm (motion was the trigger) and updated by
+  // Set on entering PreAlarm (motion was the trigger) and updated live by
   // cbMotion / cbMotionEnd.  Read by cbPreAlarmExpired to decide outcome.
   bool m_motionActive = false;
 
   // Latched true the first time motion stops during PreAlarm.
-  // If motion then restarts before the 5 s timer expires we escalate
-  // to FullAlarm immediately instead of waiting for the countdown.
+  // If motion restarts before the 5 s timer expires we escalate to
+  // FullAlarm immediately rather than waiting for the countdown.
   bool m_motionStoppedInPreAlarm = false;
 };

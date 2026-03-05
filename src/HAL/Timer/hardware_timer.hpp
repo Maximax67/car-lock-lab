@@ -6,28 +6,29 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // HardwareTimer — thin wrapper around a TIMx peripheral.
 //
-// Configured exclusively for a 1 ms update-event interrupt, which feeds
-// TimerManager. Nothing else should use this class directly.
+// Configured exclusively for a 1 ms update-event interrupt that feeds
+// TimerManager.  Nothing outside TimerManager should use this class directly.
 // ─────────────────────────────────────────────────────────────────────────────
 class HardwareTimer {
 public:
-  using Callback = void (*)(void *ctx);
+  using Callback = void (*)(void *ctx) noexcept;
 
-  // timClkHz   : timer peripheral input clock in Hz (see note above)
-  // nvicPriority: NVIC pre-emption priority (0 = highest on Cortex-M3)
-  void init(TIM_TypeDef *tim, uint32_t timClkHz, uint8_t nvicPriority = 0);
+  // timClkHz     : timer peripheral input clock in Hz
+  // nvicPriority : NVIC pre-emption priority (0 = highest on Cortex-M3)
+  void init(TIM_TypeDef *tim, uint32_t timClkHz,
+            uint8_t nvicPriority = 0) noexcept;
 
-  void start();
-  void stop();
+  void start() noexcept;
+  void stop() noexcept;
 
-  void setCallback(Callback cb, void *ctx = nullptr);
+  void setCallback(Callback cb, void *ctx = nullptr) noexcept;
 
-  // Call from the TIMx_IRQHandler — checks UIF, clears it, fires callback
-  void handleIrq();
+  // Call from the TIMx_IRQHandler — checks UIF, clears it, fires callback.
+  void handleIrq() noexcept;
 
 private:
-  void enableClock();
-  IRQn_Type irqnFor(TIM_TypeDef *tim) const;
+  void enableClock() noexcept;
+  [[nodiscard]] IRQn_Type irqnFor(TIM_TypeDef *tim) const noexcept;
 
   TIM_TypeDef *m_tim = nullptr;
   Callback m_cb = nullptr;

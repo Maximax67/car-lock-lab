@@ -1,50 +1,49 @@
 #pragma once
 
-#include "HAL/exti.hpp"
 #include "HAL/Timer/software_timer.hpp"
+#include "HAL/exti.hpp"
 #include <cstdint>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Button — interrupt-driven push-button with:
-//   • Hardware debounce (EXTI disabled during debounce window).
-//   • Single-click callback (fires when double-click window expires with 1
-//   hit). • Double-click callback (fires immediately on second confirmed
-//   click).
+// Button — interrupt-driven push-button with hardware debounce and click
+// classification.
 //
-// Wiring assumption (recommended for stability):
-//   External pull-up → pin is HIGH at rest, pulled LOW by the button.
-//   ↳ GpioPull::Up  +  Trigger::Falling  is used internally.
+// Features
+// ────────
+//   • Hardware debounce: EXTI line is masked during the debounce window so
+//     contact bounce never reaches the logic layer.
+//   • Single-click callback: fires when the double-click window expires with
+//     exactly one confirmed press.  If no double-click handler is registered
+//     the callback fires immediately after the debounce — no window wait.
+//   • Double-click callback: fires immediately on the second confirmed press
+//     inside the window.
 //
-// Timer requirements: two pre-allocated SoftwareTimers per Button instance.
-//   debounceTimer   : BUTTON_DEBOUNCE_MS one-shot (30 ms default).
-//   windowTimer     : BUTTON_DOUBLE_CLICK_MS one-shot (300 ms default).
+// Wiring assumption (pull-up, active-low)
+//   External or internal pull-up → pin HIGH at rest, pulled LOW by button.
+//   Falling edge = press event.
 //
-// ISR-safe: all shared state updated with IRQs disabled where necessary.
+// Timer requirements: two pre-allocated SoftwareTimers per instance.
+//   debounceTimer : one-shot, BUTTON_DEBOUNCE_MS (default 30 ms).
+//   windowTimer   : one-shot, BUTTON_DOUBLE_CLICK_MS (default 1000 ms).
 // ─────────────────────────────────────────────────────────────────────────────
 class Button {
 public:
-  using Callback = void (*)(void *ctx);
+  using Callback = void (*)(void *ctx) noexcept;
 
-  // port / pin         : GPIO coordinates.
-  // debounceTimer      : SoftwareTimer from TimerManager::allocate().
-  // windowTimer        : SoftwareTimer from TimerManager::allocate().
-  // debounceMs         : override debounce window (default: 30 ms).
-  // doubleClickWindowMs: override double-click window (default: 300 ms).
   void init(GPIO_TypeDef *port, uint8_t pin, SoftwareTimer *debounceTimer,
             SoftwareTimer *windowTimer, uint32_t debounceMs = 30,
-            uint32_t doubleClickWindowMs = 300);
+            uint32_t doubleClickWindowMs = 300) noexcept;
 
-  void setOnSingleClick(Callback cb, void *ctx = nullptr);
-  void setOnDoubleClick(Callback cb, void *ctx = nullptr);
+  void setOnSingleClick(Callback cb, void *ctx = nullptr) noexcept;
+  void setOnDoubleClick(Callback cb, void *ctx = nullptr) noexcept;
 
-  // Read instantaneous pin state: true = pressed (pin LOW with pull-up).
-  bool isPressed() const { return !m_exti.read(); }
+  // True when the pin is currently LOW (button pressed).
+  [[nodiscard]] bool isPressed() const noexcept { return !m_exti.read(); }
 
 private:
-  // Static trampoline callbacks for SoftwareTimer and ExtiPin.
-  static void onExtiIrq(void *ctx);
-  static void onDebounce(void *ctx);
-  static void onWindow(void *ctx);
+  static void onExtiIrq(void *ctx) noexcept;
+  static void onDebounce(void *ctx) noexcept;
+  static void onWindow(void *ctx) noexcept;
 
   ExtiPin m_exti;
   SoftwareTimer *m_debounceTimer = nullptr;
@@ -53,6 +52,8 @@ private:
   uint32_t m_debounceMs = 30;
   uint32_t m_windowMs = 300;
 
+  // Written inside TIM2 ISR (onDebounce / onWindow) — declared volatile so
+  // the compiler does not cache the value across ISR boundaries.
   volatile uint8_t m_pendingClicks = 0;
 
   Callback m_singleClickCb = nullptr;
