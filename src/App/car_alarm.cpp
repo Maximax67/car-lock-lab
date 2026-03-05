@@ -143,6 +143,7 @@ void CarAlarm::cbBtn1Click(void *ctx) noexcept {
     self->enterLocked();
     break;
   case State::Locked:
+  case State::PreAlarm:
     self->enterUnlocked();
     break;
   default:

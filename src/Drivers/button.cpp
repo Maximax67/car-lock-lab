@@ -49,7 +49,7 @@ void Button::onDebounce(void *ctx) noexcept {
   self->m_exti.enable();
 
   if (!self->m_exti.read()) { // pin LOW = genuinely pressed
-    ++self->m_pendingClicks;
+    self->m_pendingClicks = self->m_pendingClicks + 1;
 
     if (self->m_pendingClicks == 1u) {
       if (self->m_doubleClickCb == nullptr) {
