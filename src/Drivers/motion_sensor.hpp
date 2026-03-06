@@ -5,20 +5,8 @@
 #include <cstdint>
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MotionSensor — interrupt-driven wrapper for a PIR / digital motion sensor,
-// with hardware debounce identical in structure to Button.
-//
 // Edge-direction tracking without reading the pin
 // ────────────────────────────────────────────────
-// The GPIO is configured as floating (the PIR drives the line actively; no
-// pull resistor is needed or appropriate).  A floating pin with no pull has
-// no defined idle level — reading IDR after the debounce window is unreliable.
-//
-// Instead, direction is tracked in software:
-//   m_nextEdgeIsRising = true  on construction (sensor idle = LOW).
-//   After each confirmed event the flag is toggled so we always know which
-//   edge just fired without touching the pin at all.
-//
 //   Rising  edge confirmed → fire m_onMotion    (motion start)
 //                          → m_nextEdgeIsRising = false
 //   Falling edge confirmed → fire m_onMotionEnd (motion end)
@@ -36,11 +24,7 @@ public:
             uint32_t debounceMs = 50,
             ExtiPin::Trigger trigger = ExtiPin::Trigger::Both) noexcept;
 
-  // Fires on every confirmed motion-start edge (sensor HIGH).
   void setOnMotion(Callback cb, void *ctx = nullptr) noexcept;
-
-  // Fires on every confirmed motion-end edge (sensor LOW).
-  // Optional: if not set, falling edges are silently ignored.
   void setOnMotionEnd(Callback cb, void *ctx = nullptr) noexcept;
 
   [[nodiscard]] bool isActive() const noexcept { return m_exti.read(); }

@@ -3,20 +3,6 @@
 #include "gpio.hpp"
 #include "stm32f103x6.h"
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ExtiPin — attaches an EXTI interrupt to any GPIO pin.
-//
-// Two construction styles:
-//   Two-phase:  ExtiPin btn;
-//               btn.init(GPIOA, 0, GpioInputMode::PullUpDown,
-//                        GpioPull::Up, ExtiPin::Trigger::Falling);
-//   One-shot:   ExtiPin btn(GPIOA, 0, GpioInputMode::PullUpDown,
-//                           GpioPull::Up, ExtiPin::Trigger::Falling);
-//
-// The static s_registry[16] maps EXTI line → ExtiPin* so ISR dispatch works
-// without any runtime search.  ISR handlers must call dispatch() or
-// dispatchRange().
-// ─────────────────────────────────────────────────────────────────────────────
 class ExtiPin {
 public:
   enum class Trigger { Rising, Falling, Both };

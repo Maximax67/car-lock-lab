@@ -1,7 +1,5 @@
 #include "gpio.hpp"
 
-// ── Two-phase init ──────────────────────────────────────────────────────────
-
 void GpioPin::initAsInput(GPIO_TypeDef *port, uint8_t pin,
                           GpioInputMode inputMode, GpioPull pull) noexcept {
   m_port = port;
@@ -12,10 +10,11 @@ void GpioPin::initAsInput(GPIO_TypeDef *port, uint8_t pin,
 
   if (inputMode == GpioInputMode::PullUpDown) {
     const uint32_t mask = 1UL << m_pin;
-    if (pull == GpioPull::Up)
+    if (pull == GpioPull::Up) {
       m_port->BSRR = mask;
-    else if (pull == GpioPull::Down)
+    } else if (pull == GpioPull::Down) {
       m_port->BSRR = mask << 16;
+    }
   }
 }
 
@@ -27,8 +26,6 @@ void GpioPin::initAsOutput(GPIO_TypeDef *port, uint8_t pin, GpioMode speed,
   configure(static_cast<uint32_t>(speed), static_cast<uint32_t>(outMode));
 }
 
-// ── One-shot constructors ───────────────────────────────────────────────────
-
 GpioPin::GpioPin(GPIO_TypeDef *port, uint8_t pin, GpioInputMode inputMode,
                  GpioPull pull) noexcept {
   initAsInput(port, pin, inputMode, pull);
@@ -38,8 +35,6 @@ GpioPin::GpioPin(GPIO_TypeDef *port, uint8_t pin, GpioMode outputSpeed,
                  GpioOutputMode outputMode) noexcept {
   initAsOutput(port, pin, outputSpeed, outputMode);
 }
-
-// ── Private helpers ─────────────────────────────────────────────────────────
 
 void GpioPin::enableClock() noexcept {
   const uint32_t portIndex = (reinterpret_cast<uint32_t>(m_port) - GPIOA_BASE) /
@@ -53,8 +48,6 @@ void GpioPin::configure(uint32_t mode, uint32_t cnf) noexcept {
   setValue(reg, 2u, mode, pinIndex * 4u);
   setValue(reg, 2u, cnf, pinIndex * 4u + 2u);
 }
-
-// ── Output operations ───────────────────────────────────────────────────────
 
 void GpioPin::on() noexcept { m_port->BSRR = 1UL << m_pin; }
 void GpioPin::off() noexcept { m_port->BSRR = 1UL << (m_pin + 16u); }

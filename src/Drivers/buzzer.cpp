@@ -8,8 +8,6 @@ void Buzzer::init(GPIO_TypeDef *port, uint8_t pin,
   m_timer = timer;
 }
 
-// ── Public API ───────────────────────────────────────────────────────────────
-
 void Buzzer::playPattern(std::span<const BeepPattern> pattern,
                          bool repeat) noexcept {
   HAL_ASSERT(!pattern.empty());
@@ -19,7 +17,6 @@ void Buzzer::playPattern(std::span<const BeepPattern> pattern,
   m_step = 0;
   m_running = true;
 
-  // Kick off the first ON phase immediately.
   m_inOn = true;
   m_pin.on();
   m_timer->start(m_pattern[0].onMs, /*oneShot=*/true, onTimer, this);
@@ -36,8 +33,6 @@ void Buzzer::stop() noexcept {
   m_running = false;
 }
 
-// ── Internal step advancement ────────────────────────────────────────────────
-
 void Buzzer::advanceStep() noexcept {
   ++m_step;
   if (m_step >= m_pattern.size()) {
@@ -53,8 +48,6 @@ void Buzzer::advanceStep() noexcept {
   m_pin.on();
   m_timer->start(m_pattern[m_step].onMs, /*oneShot=*/true, onTimer, this);
 }
-
-// ── Timer callback (TIM2 ISR context) ───────────────────────────────────────
 
 void Buzzer::onTimer(void *ctx) noexcept {
   auto *self = static_cast<Buzzer *>(ctx);

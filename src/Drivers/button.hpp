@@ -4,28 +4,6 @@
 #include "HAL/exti.hpp"
 #include <cstdint>
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Button — interrupt-driven push-button with hardware debounce and click
-// classification.
-//
-// Features
-// ────────
-//   • Hardware debounce: EXTI line is masked during the debounce window so
-//     contact bounce never reaches the logic layer.
-//   • Single-click callback: fires when the double-click window expires with
-//     exactly one confirmed press.  If no double-click handler is registered
-//     the callback fires immediately after the debounce — no window wait.
-//   • Double-click callback: fires immediately on the second confirmed press
-//     inside the window.
-//
-// Wiring assumption (pull-up, active-low)
-//   External or internal pull-up → pin HIGH at rest, pulled LOW by button.
-//   Falling edge = press event.
-//
-// Timer requirements: two pre-allocated SoftwareTimers per instance.
-//   debounceTimer : one-shot, BUTTON_DEBOUNCE_MS (default 30 ms).
-//   windowTimer   : one-shot, BUTTON_DOUBLE_CLICK_MS (default 1000 ms).
-// ─────────────────────────────────────────────────────────────────────────────
 class Button {
 public:
   using Callback = void (*)(void *ctx) noexcept;

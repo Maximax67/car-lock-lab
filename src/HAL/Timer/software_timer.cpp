@@ -29,11 +29,10 @@ void SoftwareTimer::restart() noexcept {
   __enable_irq();
 }
 
-// ── Called only from TimerManager — advances by exactly 1 ms ────────────────
-
 void SoftwareTimer::tick() noexcept {
-  if (!m_running)
+  if (!m_running) {
     return;
+  }
 
   auto elapsed = m_elapsed + 1;
   m_elapsed = elapsed;
@@ -46,11 +45,11 @@ void SoftwareTimer::tick() noexcept {
   // that the callback is free to call start() / stop() without racing.
   if (m_oneShot) {
     m_running = false;
-    m_elapsed = 0;
-  } else {
-    m_elapsed = 0; // auto-reload for repeating mode
   }
 
-  if (m_cb)
+  m_elapsed = 0;
+
+  if (m_cb) {
     m_cb(m_ctx);
+  }
 }

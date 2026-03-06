@@ -19,8 +19,6 @@ static RgbLed g_led;
 static CarAlarm g_carAlarm;
 
 int main() {
-  // TIM2, priority 0 (highest) so it can preempt EXTI (priority 1) and
-  // advance software timers atomically.
   auto &tm = TimerManager::instance();
   tm.init(TIM2, Config::TIM_CLK_HZ, 0);
 

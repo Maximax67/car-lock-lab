@@ -3,12 +3,6 @@
 #include "stm32f103x6.h"
 #include <cstdint>
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HardwareTimer — thin wrapper around a TIMx peripheral.
-//
-// Configured exclusively for a 1 ms update-event interrupt that feeds
-// TimerManager.  Nothing outside TimerManager should use this class directly.
-// ─────────────────────────────────────────────────────────────────────────────
 class HardwareTimer {
 public:
   using Callback = void (*)(void *ctx) noexcept;

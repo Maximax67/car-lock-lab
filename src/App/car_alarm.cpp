@@ -132,10 +132,6 @@ void CarAlarm::updatePreAlarmBlink() noexcept {
   m_led->setBlinkPeriod(period / 2u);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Static callback trampolines
-// ─────────────────────────────────────────────────────────────────────────────
-
 void CarAlarm::cbBtn1Click(void *ctx) noexcept {
   auto *self = static_cast<CarAlarm *>(ctx);
   switch (self->m_state) {
@@ -153,24 +149,21 @@ void CarAlarm::cbBtn1Click(void *ctx) noexcept {
 
 void CarAlarm::cbBtn2Click(void *ctx) noexcept {
   auto *self = static_cast<CarAlarm *>(ctx);
-  if (self->m_state == State::Unlocked || self->m_state == State::Locked)
+  if (self->m_state == State::Unlocked || self->m_state == State::Locked) {
     self->onSpecialAction();
+  }
 }
 
 void CarAlarm::cbBtn3DoubleClick(void *ctx) noexcept {
   auto *self = static_cast<CarAlarm *>(ctx);
-  if (self->m_state != State::Unlocked && self->m_state != State::Locked)
+  if (self->m_state != State::Unlocked && self->m_state != State::Locked) {
     return;
+  }
   self->m_cargoRelay->pulse(Config::CARGO_RELAY_PULSE_MS);
   self->m_led->playFlash(Config::FLASH_CARGO, true, false, true, false,
                          cbRestoreLed, self);
   self->m_buzzer->playPattern(Config::BEEP_CARGO);
 }
-
-// ── Motion started
-// ────────────────────────────────────────────────────────────
-//  Locked   → start the pre-alarm countdown.
-//  PreAlarm → motion stopped then restarted: escalate to FullAlarm immediately.
 
 void CarAlarm::cbMotion(void *ctx) noexcept {
   auto *self = static_cast<CarAlarm *>(ctx);
@@ -181,7 +174,6 @@ void CarAlarm::cbMotion(void *ctx) noexcept {
   case State::PreAlarm:
     self->m_motionActive = true;
     if (self->m_motionStoppedInPreAlarm) {
-      // Disappeared then reappeared inside the 5 s window → alarm now.
       self->m_preAlarmTimer->stop();
       self->m_preAlarmUpdate->stop();
       self->enterFullAlarm();
@@ -192,12 +184,6 @@ void CarAlarm::cbMotion(void *ctx) noexcept {
   }
 }
 
-// ── Motion stopped
-// ────────────────────────────────────────────────────────────
-//  PreAlarm → record that motion has gone.  Do NOT touch the timer — the 5 s
-//  blink always runs to completion.  cbPreAlarmExpired checks m_motionActive
-//  and returns to Locked if motion is still absent when the countdown finishes.
-
 void CarAlarm::cbMotionEnd(void *ctx) noexcept {
   auto *self = static_cast<CarAlarm *>(ctx);
   if (self->m_state == State::PreAlarm) {
@@ -206,24 +192,21 @@ void CarAlarm::cbMotionEnd(void *ctx) noexcept {
   }
 }
 
-// ── Pre-alarm timer expired
-// ───────────────────────────────────────────────────
-//  Motion still present → FullAlarm.
-//  Motion gone          → return to Locked quietly (alarm never triggered).
-
 void CarAlarm::cbPreAlarmExpired(void *ctx) noexcept {
   auto *self = static_cast<CarAlarm *>(ctx);
   self->m_preAlarmUpdate->stop();
-  if (self->m_motionActive)
+  if (self->m_motionActive) {
     self->enterFullAlarm();
-  else
-    self->enterLocked(/*silent=*/true); // no beep / relay — alarm never fired
+  } else {
+    self->enterLocked(/*silent=*/true);
+  }
 }
 
 void CarAlarm::cbAnyBtnAlarmReset(void *ctx) noexcept {
   auto *self = static_cast<CarAlarm *>(ctx);
-  if (self->m_state == State::FullAlarm)
-    self->enterLocked(/*silent=*/true); // dismissing alarm: no re-lock signal
+  if (self->m_state == State::FullAlarm) {
+    self->enterLocked(/*silent=*/true);
+  }
 }
 
 void CarAlarm::cbPreAlarmUpdate(void *ctx) noexcept {

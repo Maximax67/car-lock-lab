@@ -19,13 +19,15 @@ void HardwareTimer::init(TIM_TypeDef *tim, uint32_t timClkHz,
 }
 
 void HardwareTimer::start() noexcept {
-  if (m_tim)
+  if (m_tim) {
     m_tim->CR1 |= TIM_CR1_CEN;
+  }
 }
 
 void HardwareTimer::stop() noexcept {
-  if (m_tim)
+  if (m_tim) {
     m_tim->CR1 &= ~TIM_CR1_CEN;
+  }
 }
 
 void HardwareTimer::setCallback(Callback cb, void *ctx) noexcept {
@@ -34,44 +36,54 @@ void HardwareTimer::setCallback(Callback cb, void *ctx) noexcept {
 }
 
 void HardwareTimer::handleIrq() noexcept {
-  if (!(m_tim->SR & TIM_SR_UIF))
+  if (!(m_tim->SR & TIM_SR_UIF)) {
     return;
+  }
   m_tim->SR &= ~TIM_SR_UIF;
-  if (m_cb)
+  if (m_cb) {
     m_cb(m_ctx);
+  }
 }
 
 void HardwareTimer::enableClock() noexcept {
-  if (m_tim == TIM1)
+  if (m_tim == TIM1) {
     RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
-  else if (m_tim == TIM2)
+  } else if (m_tim == TIM2) {
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
-  else if (m_tim == TIM3)
+  } else if (m_tim == TIM3) {
     RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
+  }
 }
 
 IRQn_Type HardwareTimer::irqnFor(TIM_TypeDef *tim) const noexcept {
-  if (tim == TIM1)
+  if (tim == TIM1) {
     return TIM1_UP_IRQn;
-  if (tim == TIM2)
+  }
+  if (tim == TIM2) {
     return TIM2_IRQn;
-  if (tim == TIM3)
+  }
+  if (tim == TIM3) {
     return TIM3_IRQn;
+  }
 #ifdef TIM4
-  if (tim == TIM4)
+  if (tim == TIM4) {
     return TIM4_IRQn;
+  }
 #endif
 #ifdef TIM5
-  if (tim == TIM5)
+  if (tim == TIM5) {
     return TIM5_IRQn;
+  }
 #endif
 #ifdef TIM6
-  if (tim == TIM6)
+  if (tim == TIM6) {
     return TIM6_IRQn;
+  }
 #endif
 #ifdef TIM7
-  if (tim == TIM7)
+  if (tim == TIM7) {
     return TIM7_IRQn;
+  }
 #endif
   halPanic(); // unsupported TIM peripheral — halt with debugger breakpoint
 }

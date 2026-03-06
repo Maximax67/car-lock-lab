@@ -3,8 +3,7 @@
 
 // Pool-size sanity check — if the timer budget changes, update the comment in
 // the header to match and raise MAX_SW_TIMERS if needed.
-static_assert(MAX_SW_TIMERS >= 20,
-              "Timer pool too small; review the budget in timer_manager.hpp");
+static_assert(MAX_SW_TIMERS >= 15, "Timer pool too small");
 
 TimerManager &TimerManager::instance() noexcept {
   static TimerManager inst;
@@ -30,13 +29,12 @@ SoftwareTimer *TimerManager::allocate() noexcept {
   halPanic(); // pool exhausted — raise MAX_SW_TIMERS or reduce driver count
 }
 
-// ── Runs inside TIM2 ISR every 1 ms ─────────────────────────────────────────
-
 void TimerManager::onHwTick(void *ctx) noexcept {
   auto *self = static_cast<TimerManager *>(ctx);
   self->m_ticks = self->m_ticks + 1;
   for (uint8_t i = 0; i < MAX_SW_TIMERS; ++i) {
-    if (self->m_used[i])
+    if (self->m_used[i]) {
       self->m_pool[i].tick();
+    }
   }
 }

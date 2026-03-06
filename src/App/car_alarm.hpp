@@ -8,25 +8,6 @@
 #include "HAL/Timer/software_timer.hpp"
 #include "HAL/Timer/timer_manager.hpp"
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CarAlarm — application-layer state machine.
-//
-// States
-// ──────
-//  Unlocked  : Green LED solid.  Lock button locks; cargo button opens cargo.
-//  Locked    : Red LED solid.    Unlock button unlocks; motion → PreAlarm.
-//  PreAlarm  : Red LED blinking (1 s → 200 ms period over 5 s).
-//              The 5 s countdown always runs to completion.
-//              • Motion gone, 5 s expires           → back to Locked (quiet).
-//              • Motion still present when 5 s expires → FullAlarm.
-//              • Motion stops then restarts < 5 s   → FullAlarm immediately.
-//  FullAlarm : Red LED 125 ms blink.  Buzzer 300 ms period (repeating).
-//              Any button press → back to Locked.
-//
-// Cargo door (double-click button 3) is available in Unlocked and Locked.
-// Button 2 triggers a special action (default: 300 ms blue LED flash).
-// Override onSpecialAction() in a subclass to replace this behaviour.
-// ─────────────────────────────────────────────────────────────────────────────
 class CarAlarm {
 public:
   enum class State { Unlocked, Locked, PreAlarm, FullAlarm };
@@ -44,6 +25,7 @@ protected:
 
 private:
   void enterUnlocked() noexcept;
+
   // silent=true  — returning from PreAlarm / FullAlarm: no beep, no relay.
   // silent=false — user-initiated lock: beep + relay pulse as normal.
   void enterLocked(bool silent = false) noexcept;
@@ -72,9 +54,8 @@ private:
   Buzzer *m_buzzer = nullptr;
   RgbLed *m_led = nullptr;
 
-  SoftwareTimer *m_preAlarmTimer = nullptr; // 5 s one-shot countdown
-  SoftwareTimer *m_preAlarmUpdate =
-      nullptr; // 100 ms repeating blink interpolator
+  SoftwareTimer *m_preAlarmTimer = nullptr;
+  SoftwareTimer *m_preAlarmUpdate = nullptr;
 
   State m_state = State::Unlocked;
   uint32_t m_preAlarmElapsedMs = 0;

@@ -2,8 +2,6 @@
 
 ExtiPin *ExtiPin::s_registry[16] = {};
 
-// ── Two-phase init ──────────────────────────────────────────────────────────
-
 void ExtiPin::init(GPIO_TypeDef *port, uint8_t pin, GpioInputMode inputMode,
                    GpioPull pull, Trigger trigger) noexcept {
   m_pin = pin;
@@ -15,14 +13,10 @@ void ExtiPin::init(GPIO_TypeDef *port, uint8_t pin, GpioInputMode inputMode,
   configureNvic();
 }
 
-// ── One-shot constructor ─────────────────────────────────────────────────────
-
 ExtiPin::ExtiPin(GPIO_TypeDef *port, uint8_t pin, GpioInputMode inputMode,
                  GpioPull pull, Trigger trigger) noexcept {
   init(port, pin, inputMode, pull, trigger);
 }
-
-// ── Public interface ────────────────────────────────────────────────────────
 
 void ExtiPin::setCallback(Callback cb, void *ctx) noexcept {
   __disable_irq();
@@ -37,26 +31,26 @@ void ExtiPin::disable() noexcept { EXTI->IMR &= ~(1UL << m_pin); }
 void ExtiPin::handleIrq() noexcept {
   const uint32_t pending = EXTI->PR;
   if (pending & (1UL << m_pin)) {
-    EXTI->PR = (1UL << m_pin); // clear by writing 1
-    if (m_callback)
+    EXTI->PR = (1UL << m_pin);
+    if (m_callback) {
       m_callback(m_ctx);
+    }
   }
 }
 
-// ── ISR dispatch helpers ────────────────────────────────────────────────────
-
 void ExtiPin::dispatch(uint8_t pin) noexcept {
-  if (s_registry[pin])
+  if (s_registry[pin]) {
     s_registry[pin]->handleIrq();
+  }
 }
 
 void ExtiPin::dispatchRange(uint8_t first, uint8_t last) noexcept {
-  for (uint8_t i = first; i <= last; ++i)
-    if ((EXTI->PR & (1UL << i)) && s_registry[i])
+  for (uint8_t i = first; i <= last; ++i) {
+    if ((EXTI->PR & (1UL << i)) && s_registry[i]) {
       s_registry[i]->handleIrq();
+    }
+  }
 }
-
-// ── Private helpers ─────────────────────────────────────────────────────────
 
 uint8_t ExtiPin::portSource() const noexcept {
   // GPIO ports are spaced 0x400 bytes apart starting from GPIOA_BASE.
@@ -77,16 +71,18 @@ void ExtiPin::configureAfio() noexcept {
 
 void ExtiPin::configureLine() noexcept {
   const uint32_t line = 1UL << m_pin;
-  if (m_trigger == Trigger::Rising || m_trigger == Trigger::Both)
+  if (m_trigger == Trigger::Rising || m_trigger == Trigger::Both) {
     EXTI->RTSR |= line;
-  else
+  } else {
     EXTI->RTSR &= ~line;
-  if (m_trigger == Trigger::Falling || m_trigger == Trigger::Both)
+  }
+  if (m_trigger == Trigger::Falling || m_trigger == Trigger::Both) {
     EXTI->FTSR |= line;
-  else
+  } else {
     EXTI->FTSR &= ~line;
+  }
   EXTI->PR = line;   // clear any stale pending bit
-  EXTI->IMR |= line; // unmask — enable interrupt delivery
+  EXTI->IMR |= line; // enable interrupt delivery
 }
 
 void ExtiPin::configureNvic() noexcept {

@@ -42,7 +42,6 @@ enum class GpioOutputMode : uint8_t {
 
 class GpioPin {
 public:
-  // ── Two-phase construction ────────────────────────────────────────────
   GpioPin() = default;
 
   void initAsInput(GPIO_TypeDef *port, uint8_t pin, GpioInputMode mode,
@@ -50,13 +49,11 @@ public:
   void initAsOutput(GPIO_TypeDef *port, uint8_t pin, GpioMode speed,
                     GpioOutputMode outMode) noexcept;
 
-  // ── One-shot construction ─────────────────────────────────────────────
   GpioPin(GPIO_TypeDef *port, uint8_t pin, GpioInputMode inputMode,
           GpioPull pull = GpioPull::No) noexcept;
   GpioPin(GPIO_TypeDef *port, uint8_t pin, GpioMode outputSpeed,
           GpioOutputMode outputMode) noexcept;
 
-  // ── Operations ────────────────────────────────────────────────────────
   void on() noexcept;
   void off() noexcept;
   void toggle() noexcept;
