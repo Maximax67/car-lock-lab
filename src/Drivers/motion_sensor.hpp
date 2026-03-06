@@ -4,22 +4,10 @@
 #include "HAL/exti.hpp"
 #include <cstdint>
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Edge-direction tracking without reading the pin
-// ────────────────────────────────────────────────
-//   Rising  edge confirmed → fire m_onMotion    (motion start)
-//                          → m_nextEdgeIsRising = false
-//   Falling edge confirmed → fire m_onMotionEnd (motion end)
-//                          → m_nextEdgeIsRising = true
-//
-// Wiring assumption: sensor output HIGH = motion active (standard PIR).
-// ─────────────────────────────────────────────────────────────────────────────
 class MotionSensor {
 public:
   using Callback = void (*)(void *ctx) noexcept;
 
-  // debounceMs : glitch-rejection window (default: 50 ms).
-  // trigger    : must be Both to detect motion start and end.
   void init(GPIO_TypeDef *port, uint8_t pin, SoftwareTimer *debounceTimer,
             uint32_t debounceMs = 50,
             ExtiPin::Trigger trigger = ExtiPin::Trigger::Both) noexcept;
@@ -40,9 +28,8 @@ private:
   SoftwareTimer *m_debounceTimer = nullptr;
   uint32_t m_debounceMs = 50;
 
-  // Tracks which edge is expected next; toggled after every confirmed event.
-  // Starts true: sensor idle = LOW, so the first real event is a rising edge.
-  bool m_nextEdgeIsRising = true;
+  bool m_lastStableState = false;
+  bool m_pendingState = false;
 
   Callback m_onMotion = nullptr;
   void *m_onMotionCtx = nullptr;

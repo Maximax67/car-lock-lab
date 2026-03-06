@@ -20,10 +20,10 @@ void CarAlarm::init(Button *btn1, Button *btn2, Button *btn3,
   m_btn2->setOnSingleClick(cbBtn2Click, this);
   m_btn3->setOnDoubleClick(cbBtn3DoubleClick, this);
 
+  enterLocked(/*silent=*/true);
+
   m_motion->setOnMotion(cbMotion, this);
   m_motion->setOnMotionEnd(cbMotionEnd, this);
-
-  enterLocked(/*silent=*/true);
 }
 
 void CarAlarm::enterUnlocked() noexcept {

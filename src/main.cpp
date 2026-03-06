@@ -20,26 +20,28 @@ static CarAlarm g_carAlarm;
 
 int main() {
   auto &tm = TimerManager::instance();
-  tm.init(TIM2, Config::TIM_CLK_HZ, 0);
+  tm.init(Config::TIM_PERIPHERAL, Config::TIM_CLK_HZ,
+          Config::TIM_NVIC_PRIORITY);
 
-  g_btn1.init(GPIOA, 0, tm.allocate(), tm.allocate(),
+  g_btn1.init(Config::BTN1_PORT, Config::BTN1_PIN, tm.allocate(), tm.allocate(),
               Config::BUTTON_DEBOUNCE_MS, Config::BUTTON_DOUBLE_CLICK_MS);
-  g_btn2.init(GPIOA, 1, tm.allocate(), tm.allocate(),
+  g_btn2.init(Config::BTN2_PORT, Config::BTN2_PIN, tm.allocate(), tm.allocate(),
               Config::BUTTON_DEBOUNCE_MS, Config::BUTTON_DOUBLE_CLICK_MS);
-  g_btn3.init(GPIOA, 2, tm.allocate(), tm.allocate(),
+  g_btn3.init(Config::BTN3_PORT, Config::BTN3_PIN, tm.allocate(), tm.allocate(),
               Config::BUTTON_DEBOUNCE_MS, Config::BUTTON_DOUBLE_CLICK_MS);
 
-  g_motion.init(GPIOA, 7, tm.allocate(), Config::MOTION_DEBOUNCE_MS,
-                ExtiPin::Trigger::Both);
+  g_motion.init(Config::MOTION_PORT, Config::MOTION_PIN, tm.allocate(),
+                Config::MOTION_DEBOUNCE_MS, Config::MOTION_TRIGGER);
 
-  g_lockRelay.init(GPIOB, 0, tm.allocate());
-  g_cargoRelay.init(GPIOB, 1, tm.allocate());
+  g_lockRelay.init(Config::LOCK_RELAY_PORT, Config::LOCK_RELAY_PIN,
+                   tm.allocate());
+  g_cargoRelay.init(Config::CARGO_RELAY_PORT, Config::CARGO_RELAY_PIN,
+                    tm.allocate());
 
-  g_buzzer.init(GPIOB, 4, tm.allocate());
+  g_buzzer.init(Config::BUZZER_PORT, Config::BUZZER_PIN, tm.allocate());
 
-  g_led.init(GPIOB, 5, // R
-             GPIOB, 6, // G
-             GPIOB, 7, // B
+  g_led.init(Config::LED_R_PORT, Config::LED_R_PIN, Config::LED_G_PORT,
+             Config::LED_G_PIN, Config::LED_B_PORT, Config::LED_B_PIN,
              tm.allocate());
 
   g_carAlarm.init(&g_btn1, &g_btn2, &g_btn3, &g_motion, &g_lockRelay,

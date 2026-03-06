@@ -6,9 +6,11 @@ void MotionSensor::init(GPIO_TypeDef *port, uint8_t pin,
   m_debounceTimer = debounceTimer;
   m_debounceMs = debounceMs;
 
-  // Floating input — the PIR drives the line actively; no pull needed.
-  m_exti.init(port, pin, GpioInputMode::Floating, GpioPull::No, trigger);
-  m_nextEdgeIsRising = !m_exti.read();
+  m_exti.init(port, pin, GpioInputMode::PullUpDown, GpioPull::Down, trigger);
+  __DSB(); // ensure GPIO config is fully committed before reading IDR
+  m_lastStableState = m_exti.read();
+  m_pendingState = m_lastStableState;
+
   m_exti.setCallback(onExtiIrq, this);
 }
 
@@ -17,6 +19,12 @@ void MotionSensor::setOnMotion(Callback cb, void *ctx) noexcept {
   m_onMotion = cb;
   m_onMotionCtx = ctx;
   __enable_irq();
+
+  // If the sensor was already active at init() time,
+  // no rising edge will ever fire.
+  if (m_lastStableState) {
+    cb(ctx);
+  }
 }
 
 void MotionSensor::setOnMotionEnd(Callback cb, void *ctx) noexcept {
@@ -28,6 +36,7 @@ void MotionSensor::setOnMotionEnd(Callback cb, void *ctx) noexcept {
 
 void MotionSensor::onExtiIrq(void *ctx) noexcept {
   auto *self = static_cast<MotionSensor *>(ctx);
+  self->m_pendingState = self->m_exti.read();
   self->m_exti.disable();
   self->m_debounceTimer->start(self->m_debounceMs, /*oneShot=*/true, onDebounce,
                                self);
@@ -35,15 +44,22 @@ void MotionSensor::onExtiIrq(void *ctx) noexcept {
 
 void MotionSensor::onDebounce(void *ctx) noexcept {
   auto *self = static_cast<MotionSensor *>(ctx);
+  const bool currentState = self->m_exti.read();
+
+  if (currentState != self->m_pendingState ||
+      currentState == self->m_lastStableState) {
+    self->m_exti.enable();
+    return;
+  }
+
+  self->m_lastStableState = currentState;
   self->m_exti.enable();
 
-  if (self->m_nextEdgeIsRising) {
-    self->m_nextEdgeIsRising = false;
+  if (currentState) {
     if (self->m_onMotion) {
       self->m_onMotion(self->m_onMotionCtx);
     }
   } else {
-    self->m_nextEdgeIsRising = true;
     if (self->m_onMotionEnd) {
       self->m_onMotionEnd(self->m_onMotionEndCtx);
     }
