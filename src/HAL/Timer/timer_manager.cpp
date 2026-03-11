@@ -1,23 +1,20 @@
 #include "timer_manager.hpp"
 #include "HAL/hal_assert.hpp"
 
-// Pool-size sanity check — if the timer budget changes, update the comment in
-// the header to match and raise MAX_SW_TIMERS if needed.
-static_assert(MAX_SW_TIMERS >= 15, "Timer pool too small");
+static_assert(MAX_SW_TIMERS >= 15,
+              "Timer pool too small — see budget in header");
 
 TimerManager &TimerManager::instance() noexcept {
   static TimerManager inst;
   return inst;
 }
 
-void TimerManager::init(TIM_TypeDef *tim, uint32_t timClkHz,
-                        uint8_t nvicPriority) noexcept {
-  m_hwTimer.setCallback(onHwTick, this);
-  m_hwTimer.init(tim, timClkHz, nvicPriority);
-  m_hwTimer.start();
+void TimerManager::init(uint32_t coreClkHz, uint8_t nvicPriority) noexcept {
+  m_sysTick.setCallback(onHwTick, this);
+  m_sysTick.init(coreClkHz, nvicPriority);
 }
 
-void TimerManager::handleTimerIrq() noexcept { m_hwTimer.handleIrq(); }
+void TimerManager::handleTimerIrq() noexcept { m_sysTick.handleIrq(); }
 
 SoftwareTimer *TimerManager::allocate() noexcept {
   for (uint8_t i = 0; i < MAX_SW_TIMERS; ++i) {

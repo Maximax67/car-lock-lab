@@ -8,12 +8,15 @@
 
 namespace Config {
 
+constexpr uint32_t CORE_CLK_HZ = 8'000'000u;
+constexpr uint8_t SYSTICK_NVIC_PRIORITY = 0;
+
 // ---------------------------------------------------------------------------
-// Timer
+// RGB LED blink timer (TIM2)
 // ---------------------------------------------------------------------------
-inline TIM_TypeDef *const TIM_PERIPHERAL = TIM2;
-constexpr uint32_t TIM_CLK_HZ = 8'000'000u;
-constexpr uint32_t TIM_NVIC_PRIORITY = 0;
+inline TIM_TypeDef *const LED_BLINK_TIM = TIM2;
+constexpr uint32_t LED_BLINK_TIM_CLK_HZ = CORE_CLK_HZ;
+constexpr uint8_t LED_BLINK_TIM_NVIC_PRIORITY = 2;
 
 // ---------------------------------------------------------------------------
 // Buttons
@@ -113,4 +116,5 @@ inline constexpr std::array<FlashStep, 1> FLASH_BTN2 = {{
 
 constexpr uint32_t SPECIAL_ACTION_RELAY_PULSE_MS = 300;
 constexpr uint32_t SPECIAL_ACTION_BEEP_MS = 300;
+
 } // namespace Config

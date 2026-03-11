@@ -20,8 +20,7 @@ static CarAlarm g_carAlarm;
 
 int main() {
   auto &tm = TimerManager::instance();
-  tm.init(Config::TIM_PERIPHERAL, Config::TIM_CLK_HZ,
-          Config::TIM_NVIC_PRIORITY);
+  tm.init(Config::CORE_CLK_HZ, Config::SYSTICK_NVIC_PRIORITY);
 
   g_btn1.init(Config::BTN1_PORT, Config::BTN1_PIN, tm.allocate(), tm.allocate(),
               Config::BUTTON_DEBOUNCE_MS, Config::BUTTON_DOUBLE_CLICK_MS);
@@ -42,7 +41,8 @@ int main() {
 
   g_led.init(Config::LED_R_PORT, Config::LED_R_PIN, Config::LED_G_PORT,
              Config::LED_G_PIN, Config::LED_B_PORT, Config::LED_B_PIN,
-             tm.allocate());
+             Config::LED_BLINK_TIM, Config::LED_BLINK_TIM_CLK_HZ,
+             Config::LED_BLINK_TIM_NVIC_PRIORITY, tm.allocate());
 
   g_carAlarm.init(&g_btn1, &g_btn2, &g_btn3, &g_motion, &g_lockRelay,
                   &g_cargoRelay, &g_buzzer, &g_led, &tm);

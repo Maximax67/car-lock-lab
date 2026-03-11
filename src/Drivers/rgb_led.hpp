@@ -2,6 +2,7 @@
 
 #include "HAL/Timer/software_timer.hpp"
 #include "HAL/gpio.hpp"
+#include "stm32f103x6.h"
 #include <cstdint>
 #include <span>
 
@@ -16,7 +17,8 @@ public:
 
   void init(GPIO_TypeDef *rPort, uint8_t rPin, GPIO_TypeDef *gPort,
             uint8_t gPin, GPIO_TypeDef *bPort, uint8_t bPin,
-            SoftwareTimer *timer) noexcept;
+            TIM_TypeDef *blinkTim, uint32_t blinkTimClkHz, uint8_t blinkNvicPri,
+            SoftwareTimer *flashTimer) noexcept;
 
   void setColor(bool r, bool g, bool b) noexcept;
   void off() noexcept;
@@ -26,21 +28,34 @@ public:
                  void *onDoneCtx = nullptr) noexcept;
 
   void startBlink(uint32_t halfPeriodMs, bool r, bool g, bool b) noexcept;
+
   void setBlinkPeriod(uint32_t halfPeriodMs) noexcept;
 
   [[nodiscard]] bool isBlinking() const noexcept {
     return m_mode == Mode::Blink;
   }
 
+  static void dispatchBlinkIrq() noexcept;
+
 private:
   enum class Mode { Idle, Flash, Blink };
 
-  static void onTimer(void *ctx) noexcept;
-  void setRaw(bool r, bool g, bool b) noexcept;
+  void initBlinkTim(uint32_t clkHz, uint8_t nvicPri) noexcept;
+  void startBlinkTim(uint32_t halfPeriodMs) noexcept;
+  void stopBlinkTim() noexcept;
+
+  void handleBlinkIrq() noexcept;
+
+  static void onFlashTimer(void *ctx) noexcept;
   void advanceFlashStep() noexcept;
 
+  void setRaw(bool r, bool g, bool b) noexcept;
+
+  static RgbLed *s_instance;
+
   GpioPin m_r, m_g, m_b;
-  SoftwareTimer *m_timer = nullptr;
+  TIM_TypeDef *m_blinkTim = nullptr;
+  SoftwareTimer *m_flashTimer = nullptr;
   Mode m_mode = Mode::Idle;
 
   // Flash state
